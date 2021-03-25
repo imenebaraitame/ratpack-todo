@@ -1,23 +1,18 @@
-
 buildscript {
     repositories {
         jcenter()
     }
     dependencies {
-        classpath 'io.ratpack:ratpack-gradle:1.3.3'
+        classpath 'io.ratpack:ratpack-gradle:1.6.1'
         classpath 'com.h2database:h2:1.4.197'
-        classpath 'org.jooq:jooq-codegen:3.10.1'
+        classpath "org.jooq:jooq-codegen:3.10.1"
+        classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.3'
     }
 }
 
-plugins {
-    id 'io.ratpack.ratpack-groovy' version '1.3.3'
-    id 'idea'
-}
-
 apply plugin: "io.ratpack.ratpack-groovy"
+apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: "idea"
-
 
 sourceCompatibility = 1.8
 
@@ -30,11 +25,17 @@ dependencies {
 //    compile ratpack.dependency('handlebars') // handlebars.js template engine
 //    compile ratpack.dependency('thymeleaf') // HTML template engine
     compile 'com.h2database:h2:1.4.197'
-    compile 'org.jooq:jooq-codegen:3.10.1'
+    // compile "org.jooq:jooq-codegen:3.10.1"
+    compile "org.jooq:jooq:3.10.1"
+//    compile "org.jooq:jooq-meta:3.10.1"
     compile 'org.slf4j:slf4j-simple:1.7.25'
 }
 
-import org.jooq.util.jaxb.* // Target moved to org.jooq.meta.jaxb
+// This task we need to make is to add a file called Procfile for Heroku
+task stage(dependsOn: installShadowDist) // old task name: installShadowApp
+
+// Target moved to org.jooq.meta.jaxb
+import org.jooq.util.jaxb.*
 import org.jooq.util.*
 
 task jooqCodegen {

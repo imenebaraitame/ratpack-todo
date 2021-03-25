@@ -1,68 +1,50 @@
 import com.google.common.reflect.TypeToken
-import groovy.util.logging.Slf4j
-import jooq.tables.Todo
-import jooq.tables.records.TodoRecord
-import org.jooq.DSLContext
-import org.jooq.SQLDialect
-import org.jooq.impl.DSL
+import groovy.transform.CompileStatic
+import ratpack.exec.Promise
 import ratpack.func.Action
+import ratpack.func.Function
 import ratpack.handling.ByMethodSpec
 import ratpack.handling.Context
+import ratpack.handling.Handler
 import ratpack.handling.InjectionHandler
 import ratpack.http.Response
-import ratpack.exec.Blocking
 import ratpack.jackson.Jackson
-import ratpack.groovy.template.TextTemplateModule
-import static ratpack.groovy.Groovy.groovyTemplate
+import ratpack.jackson.JsonRender
 
-import javax.sql.DataSource
+@CompileStatic
+class TodoHandler extends InjectionHandler {
 
-/**
- * Created by Master on 25/07/2018.
- */
-@Slf4j
-class TodoHandler extends InjectionHandler{
+    void handle(Context ctx, TodoRepository repo, String base) throws Exception {
 
-    void handle(Context ctx, DataSource ds){
-        def slf4jLogger = log
-        DSLContext create = DSL.using(ds, SQLDialect.H2)
+        Long todoId = Long.parseLong(ctx.pathTokens.get('id'))
+
+        Function<TodoModel, TodoModel> hostUpdater = { TodoModel todo -> todo.baseUrl(base) } as Function<TodoModel, TodoModel>
+        Function<TodoModel, JsonRender> toJson = hostUpdater.andThen { todo -> Jackson.json(todo) }
+
         Response response = ctx.response
-        ctx.byMethod ({ ByMethodSpec method -> method
-            .options {
-                response.headers.set('Access-Control-Allow-Methods', 'OPTIONS, GET, POST, DELETE, PUT')
-                response.send()
-            }
-            .get {
-                def selectAll = create.select().from(Todo.TODO)
-                def todos = Blocking.get{ selectAll.fetchMaps() }
-                todos.then {
-                    ctx.render Jackson.json(it)
-                }
-//                ctx.render(groovyTemplate(title:"My TodoApp2", "welcome.html"))
-            }
-//            .get('/home'){
-//                render groovyMarkupTemplte("index.gtpl", title:" Welcome to TodoManager")
-//            }
-//            .get('/gr8conf'){
-//                ctx.render 'Hello GR8Conf peolple'
-//            }
-//            .get(':conf'){
-//                ctx.render "Hello ${pathTokens.get('conf')}"
-//            }
-            .post {
-                ctx.parse(new TypeToken<Map<String, Object>>(){}).map { map ->
-                    slf4jLogger.info("Map: ${map}".toString())
-                    return create.newRecord(Todo.TODO, map)
-                }.blockingOp { TodoRecord record ->
-                    record.store()
-                }.blockingOp{ TodoRecord record ->
-                    record.refresh()
-                }.then{ todo ->
-                    ctx.render Jackson.json(todo)
-                }
 
-            }
+        ctx.byMethod({ ByMethodSpec byMethodSpec -> byMethodSpec
+                .options( {
+                    response.headers.set('Access-Control-Allow-Methods', 'OPTIONS, GET, PATCH, DELETE')
+                    response.send()
+                } as Handler)
+                .get( { repo.getById(todoId).map(toJson).then(ctx.&render) } as Handler)
+                .patch( {
+                    ctx
+                        .parse(Jackson.fromJson(new TypeToken<Map<String, Object>>() {}))
+                        .map({ Map<String, Object> map ->
+                            Map<String, Object> patch = map.keySet().inject([:]) { m, key ->
+                                m[key.toUpperCase()] = map[key]
+                                return m
+                            } as Map<String, Object>
+                            patch['ID'] = todoId
+                            return patch
+                        } as Function<Map<String, Object>, Map<String, Object>>)
+                        .flatMap(repo.&update as Function<Map<String, Object>, Promise<TodoModel>>)
+                        .map(toJson)
+                        .then(ctx.&render)
+                } as Handler)
+                .delete( { repo.delete(todoId).then(response.&send) } as Handler)
         } as Action<ByMethodSpec>)
-
     }
 }
