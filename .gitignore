@@ -10,3 +10,4 @@ out
 *.log
 *.log.gz
 gradle/wrapper/
+.DS_Store
