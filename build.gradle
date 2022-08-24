@@ -1,9 +1,12 @@
 buildscript {
     repositories {
         jcenter()
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
     }
     dependencies {
-        classpath 'io.ratpack:ratpack-gradle:1.6.1'
+        classpath 'io.ratpack:ratpack-gradle:1.10.0-milestone-3'
         classpath 'com.h2database:h2:1.4.197'
         classpath "org.jooq:jooq-codegen:3.10.1"
         classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.3'
@@ -21,14 +24,18 @@ repositories {
 }
 
 dependencies {
-    compile ratpack.dependency('hikari') // or 'io.ratpack:ratpack-hikari:1.5.4'
+    implementation ratpack.dependency('hikari') // or 'io.ratpack:ratpack-hikari:1.5.4'
 //    compile ratpack.dependency('handlebars') // handlebars.js template engine
 //    compile ratpack.dependency('thymeleaf') // HTML template engine
-    compile 'com.h2database:h2:1.4.197'
-    // compile "org.jooq:jooq-codegen:3.10.1"
-    compile "org.jooq:jooq:3.10.1"
-//    compile "org.jooq:jooq-meta:3.10.1"
-    compile 'org.slf4j:slf4j-simple:1.7.25'
+
+    implementation(ratpack.dependency('h2')) //compile 'com.h2database:h2:1.4.197'
+    implementation("org.jooq:jooq-codegen:3.10.1")
+    implementation("org.jooq:jooq:3.10.1")
+    implementation("org.jooq:jooq-meta:3.10.1")
+    //compile 'org.slf4j:slf4j-simple:1.7.25'
+    runtimeOnly("org.slf4j:slf4j-api:1.7.32")
+    runtimeOnly("org.slf4j:slf4j-simple:1.7.32")
+    implementation('javax.annotation:javax.annotation-api:1.3.2')
 }
 
 // This task we need to make is to add a file called Procfile for Heroku
@@ -38,13 +45,16 @@ task stage(dependsOn: installShadowDist) // old task name: installShadowApp
 import org.jooq.util.jaxb.*
 import org.jooq.util.*
 
+
 task jooqCodegen {
     doLast {
-        String init = "$projectDir/src/main/resources/init.sql".replaceAll('\\\\', '/')
+
+        String init = "$projectDir/src/main/resources/init.sql"//.replaceAll('\\\\', '/')
+        String i = init.replaceAll('\\\\', '/')
         Configuration configuration = new Configuration()
                 .withJdbc(new Jdbc()
                     .withDriver('org.h2.Driver')
-                    .withUrl("jdbc:h2:mem:todo;INIT=RUNSCRIPT FROM '$init'")
+                    .withUrl("jdbc:h2:mem:todo;INIT=RUNSCRIPT FROM '$i'")
                 )
                 .withGenerator(new Generator()
                     .withDatabase(new Database()
